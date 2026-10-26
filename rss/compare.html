@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real vs RoboSimStudio twin</title>
+<meta name="description" content="Drag the divider to reveal the real footage against the agent-built RoboSimStudio twin, playing in sync.">
+<style>
+  :root { --bg:#0c0c10; --panel:#16161c; --text:#ececf1; --muted:#9a9aa4; --accent:#6ea8ff; --line:#2a2a33; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  header { padding:28px 16px 8px; max-width:1200px; margin:0 auto; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  header p { color:var(--muted); margin:0; }
+  nav { display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; max-width:1200px; margin:0 auto; }
+  nav button, .toggle button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer; }
+  nav button.active, .toggle button.active { border-color:var(--accent); color:var(--accent); }
+  main { max-width:1200px; margin:0 auto; padding:0 16px 48px; }
+  .cmp { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden; user-select:none; touch-action:none; }
+  .cmp video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; }
+  .cmp .top { clip-path: inset(0 50% 0 0); }
+  .divider { position:absolute; top:0; bottom:0; left:50%; width:2px; background:#fff; transform:translateX(-1px); pointer-events:none; }
+  .handle { position:absolute; top:50%; left:50%; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%; background:#fff; color:#000; display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 2px 10px rgba(0,0,0,.5); pointer-events:none; }
+  .tag { position:absolute; top:12px; padding:4px 10px; border-radius:6px; background:rgba(0,0,0,.55); font-size:13px; pointer-events:none; }
+  .tag.l { left:12px; } .tag.r { right:12px; }
+  .controls { display:flex; align-items:center; gap:12px; padding:12px 0; }
+  .controls button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer; min-width:84px; }
+  .controls input[type=range] { flex:1; accent-color:var(--accent); }
+  .controls .time { color:var(--muted); font-variant-numeric:tabular-nums; min-width:92px; text-align:right; font-size:14px; }
+  .caption { color:var(--muted); font-size:14px; margin:4px 0 0; }
+  .toggle { display:flex; gap:8px; margin:0 0 10px; }
+  .hint { color:var(--muted); font-size:13px; margin-top:6px; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg:#f4f4f6; --panel:#fff; --text:#15151a; --muted:#5e5e68; --line:#d8d8de; } }
+  :root[data-theme="dark"] { --bg:#0c0c10; --panel:#16161c; --text:#ececf1; --muted:#9a9aa4; --line:#2a2a33; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Real footage vs RoboSimStudio twin</h1>
+  <p>Both sides play in sync, phase aligned. Drag anywhere on the picture to move the divider. Twins were built from the clip alone by a coding agent and path traced.</p>
+</header>
+<nav id="nav"></nav>
+<main>
+  <div class="toggle" id="toggle" style="display:none"></div>
+  <div class="cmp" id="cmp">
+    <video id="vReal" muted playsinline preload="auto"></video>
+    <video id="vSim" class="top" muted playsinline preload="auto"></video>
+    <div class="divider" id="divider"></div>
+    <div class="handle" id="handle">&#8596;</div>
+    <div class="tag l">RoboSimStudio twin</div>
+    <div class="tag r">real footage</div>
+  </div>
+  <div class="controls">
+    <button id="play">Play</button>
+    <input id="seek" type="range" min="0" max="1000" value="0">
+    <span class="time" id="time">0:00 / 0:00</span>
+  </div>
+  <p class="caption" id="caption"></p>
+  <p class="hint">Left of the divider is the simulation, right is the real clip. The real clip is time-warped so its phases line up with the twin's; where the real clip is shorter it holds its last frame.</p>
+</main>
+<script>
+(function(){
+  const base = ".";
+  const items = [
+    { id:"auto7", title:"Ketchup pick and place", variants:[{label:"GPT-6 Astra", key:"auto7"}],
+      caption:"da Vinci PSM picks three pieces out of ketchup (liquid sim) and places them in the foam frame. Second instrument assists. Scene, materials, camera and routine built by GPT-6 Astra." },
+    { id:"hsm", title:"Cheese cube off meat", variants:[{label:"GPT-6 Astra", key:"hsm"}],
+      caption:"da Vinci PSM lifts a cheese cube off a soft-body meat slice and places it in the frame. Built by GPT-6 Astra." },
+    { id:"knot", title:"Suture thread on knot pad", variants:[{label:"GPT-6 Astra", key:"knot"}],
+      caption:"da Vinci needle driver grasps the thread, carries it around the other shaft and pulls the loop toward the ridge (rope sim). Built by GPT-6 Astra." },
+    { id:"surgery", title:"Biportal endoscopic decompression", variants:[{label:"GPT-6 Astra", key:"biportal_astra"},{label:"Claude Opus 5.5", key:"biportal_opus"}],
+      caption:"Endoscopic spine footage twinned with FEM tissue, rigid bone and hand-held instruments, no robot. Same prompt to two agents." },
+  ];
+  const nav = document.getElementById("nav"), toggle = document.getElementById("toggle");
+  const vReal = document.getElementById("vReal"), vSim = document.getElementById("vSim");
+  const cmp = document.getElementById("cmp"), divider = document.getElementById("divider"), handle = document.getElementById("handle");
+  const play = document.getElementById("play"), seek = document.getElementById("seek"), time = document.getElementById("time"), caption = document.getElementById("caption");
+  let cur = items[0], variant = 0, split = 0.5, dragging = false, seeking = false;
+
+  function fmt(s){ s = Math.max(0, s||0); const m = Math.floor(s/60), r = Math.floor(s%60); return m + ":" + (r<10?"0":"") + r; }
+  function setSplit(x){ split = Math.min(0.98, Math.max(0.02, x)); vSim.style.clipPath = "inset(0 " + ((1-split)*100).toFixed(2) + "% 0 0)"; divider.style.left = handle.style.left = (split*100) + "%"; }
+  function load(){
+    const key = cur.variants[variant].key;
+    vReal.src = base + "/aligned_real/" + key + ".mp4"; vSim.src = base + "/sim/" + key + ".mp4";
+    vReal.load(); vSim.load(); play.textContent = "Play"; seek.value = 0; caption.textContent = cur.caption;
+    document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("active", b.dataset.id === cur.id));
+    toggle.style.display = cur.variants.length > 1 ? "flex" : "none"; toggle.innerHTML = "";
+    cur.variants.forEach((v,i) => { const b = document.createElement("button"); b.textContent = v.label; b.classList.toggle("active", i===variant); b.onclick = () => { variant = i; load(); }; toggle.appendChild(b); });
+    try { localStorage.setItem("rss_cmp", JSON.stringify({id:cur.id, variant})); } catch(e){}
+  }
+  items.forEach(it => { const b = document.createElement("button"); b.textContent = it.title; b.dataset.id = it.id; b.onclick = () => { cur = it; variant = 0; load(); }; nav.appendChild(b); });
+  try { const s = JSON.parse(localStorage.getItem("rss_cmp")||"null"); if (s) { const it = items.find(i => i.id===s.id); if (it) { cur = it; variant = Math.min(s.variant||0, it.variants.length-1); } } } catch(e){}
+
+  function syncSim(){ if (Math.abs(vSim.currentTime - vReal.currentTime) > 0.08) vSim.currentTime = vReal.currentTime; }
+  play.onclick = () => { if (vReal.paused) { syncSim(); Promise.all([vReal.play(), vSim.play()]).catch(()=>{}); play.textContent = "Pause"; } else { vReal.pause(); vSim.pause(); play.textContent = "Play"; } };
+  vReal.addEventListener("timeupdate", () => { if (!seeking && vReal.duration) { seek.value = Math.round(1000 * vReal.currentTime / vReal.duration); time.textContent = fmt(vReal.currentTime) + " / " + fmt(vReal.duration); } syncSim(); });
+  vReal.addEventListener("ended", () => { vReal.currentTime = 0; vSim.currentTime = 0; vReal.play(); vSim.play(); });
+  vReal.addEventListener("loadedmetadata", () => { time.textContent = "0:00 / " + fmt(vReal.duration); });
+  seek.addEventListener("input", () => { seeking = true; const t = seek.value/1000 * (vReal.duration||0); vReal.currentTime = t; vSim.currentTime = t; time.textContent = fmt(t) + " / " + fmt(vReal.duration); });
+  seek.addEventListener("change", () => { seeking = false; });
+
+  function pos(e){ const r = cmp.getBoundingClientRect(); const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; return x / r.width; }
+  cmp.addEventListener("pointerdown", e => { dragging = true; cmp.setPointerCapture(e.pointerId); setSplit(pos(e)); });
+  cmp.addEventListener("pointermove", e => { if (dragging) setSplit(pos(e)); });
+  cmp.addEventListener("pointerup", () => { dragging = false; });
+  cmp.addEventListener("pointercancel", () => { dragging = false; });
+  document.addEventListener("keydown", e => { if (e.key === "ArrowLeft") setSplit(split - 0.02); if (e.key === "ArrowRight") setSplit(split + 0.02); if (e.key === " ") { e.preventDefault(); play.onclick(); } });
+  setSplit(0.5); load();
+})();
+</script>
+</body>
+</html>
