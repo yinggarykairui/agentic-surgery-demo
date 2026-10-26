@@ -16,7 +16,7 @@ Each twin was built from the reference clip alone by a coding agent (GPT-6 Astra
 | Biportal endoscopic thoracic decompression, no robot | [sim/biportal_astra.mp4](rss/sim/biportal_astra.mp4) | [side/biportal_astra.mp4](rss/side/biportal_astra.mp4) | GPT-6 Astra |
 | Biportal endoscopic thoracic decompression, no robot | [sim/biportal_opus.mp4](rss/sim/biportal_opus.mp4) | [side/biportal_opus.mp4](rss/side/biportal_opus.mp4) | Claude Opus 5.5 |
 
-In the side-by-side clips the real footage is time-scaled to the length of the sim take. The surgery twins simulate deformable tissue and rigid bone with instrument contact; they do not cut, bleed or simulate fluid.
+In the side-by-side clips both panels play at real time; the real footage is cut to the sim take, or held on its last frame when shorter. The surgery twins simulate deformable tissue and rigid bone with instrument contact; they do not cut, bleed or simulate fluid.
 
 ## Earlier CPU demo (2026-10-20)
 
